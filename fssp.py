@@ -1,13 +1,15 @@
-from selenium.webdriver import Firefox
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from PIL import Image
 import io
+
 import pytesseract
 import xlsxwriter
+from os import path
+from PIL import Image
+from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver import Firefox
+from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 class FsspParser(object):
@@ -18,36 +20,49 @@ class FsspParser(object):
         initials_keys = ['surname', 'name', 'patronymic', 'birth']
         initials_value = initials.split()
         initials = dict(zip(initials_keys, initials_value))
-        self._input_man_initials(**initials)
+        self._input_man_data(**initials)
         header = self.driver.find_elements_by_tag_name('th')
         data = self.driver.find_elements_by_tag_name('td')
         self._write_xmls(header, data, **initials)
 
-        # self.close()
+        self.close()
 
     def _write_xmls(self, header, data, **initials):
-        workbook = xlsxwriter.Workbook('hello.xlsx')
+        workbook = xlsxwriter.Workbook('dossier.xlsx')
         worksheet = workbook.add_worksheet()
         row, col = 0, 0
         for item in header:
             worksheet.write(row, col, item.text)
             col += 1
-        surname = initials['surname'].upper()
-        for item in data[1:]:
-            temp = item.text
-            if surname in temp:
-                row += 1
-                col = 0
-            worksheet.write(row, col, item.text)
-            col += 1
-        workbook.close()
 
-    def _input_man_initials(self, **initials):
+        surname = initials['surname'].upper()
+
+        if data:
+            for item in data[1:]:
+                temp = item.text
+                if surname in temp:
+                    row += 1
+                    col = 0
+                worksheet.write(row, col, item.text)
+                col += 1
+        else:
+            row, col = 1, 0
+            worksheet.write(row, col, f'По {initials["surname"]} '
+                                      f'{initials["name"]}')
+            worksheet.write(row, col + 1, 'Открытых дел нет')
+
+        workbook.close()
+        print(f'Данные по {initials["surname"]} {initials["name"]} записанны в'
+              f' файл dossier.xlsx')
+
+    def _input_man_data(self, **initials):
+
         self.driver.get('https://fssp.gov.ru/')
+
         WebDriverWait(self.driver, 1000000).until(EC.element_to_be_clickable(
             (By.XPATH, "//button[@type='button']"))).click()
-        self.driver.find_element_by_xpath(
-            '//*[@id="app"]/main/section[1]/div/div/div/div/div[2]/div/div/div/form/div[8]/div[1]/div/div[1]/a').click()
+
+        self.driver.find_element_by_link_text('Расширенный поиск').click()
 
         input_last_name = self.driver.find_element_by_xpath(
             "//input[@name='is[last_name]']")
@@ -79,10 +94,9 @@ class FsspParser(object):
             return True
 
     def _pass_capcha(self):
+        try_pass_capcha = True
 
-        pass_capcha = True
-
-        while pass_capcha:
+        while try_pass_capcha:
             self.driver.implicitly_wait(10)
 
             capcha_text = self.driver.find_element_by_xpath(
@@ -110,10 +124,10 @@ class FsspParser(object):
                 self.driver.find_element_by_class_name('results-frame')
 
             except NoSuchElementException:
-
                 self.driver.refresh()
-            else:
-                pass_capcha = False
+                print('Не прошел капчу. Пробую еще.')
+
+            try_pass_capcha = False
         return True
 
     def close(self):
@@ -123,7 +137,11 @@ class FsspParser(object):
 
 def main():
     obj = 'Кондратьев Сергей Сергеевич 03.11.1990'
-    driver = Firefox()
+    options = Options()
+    options.headless = True
+    # executable_path = указать путь до geckodriver в вашей системе
+    # driver = Firefox(options=options, executable_path=executable_path)
+    driver = Firefox(options=options)
     parser = FsspParser(driver)
     parser.parse(obj)
 
