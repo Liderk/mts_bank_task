@@ -89,12 +89,18 @@ class FsspParser(object):
                 '//input[@id="captcha-popup-code"]')
             capcha_text.click()
             capcha_text.clear()
+            # распазнование капчи
+            # получение элемента содержащего картинку с текстом капчи
             image = self.driver.find_element_by_id(
                 "capchaVisual").screenshot_as_png
+            # получение потока байтов нужной области
             imageStream = io.BytesIO(image)
+            # сохранение потока в картинку с помощью Pillow
             im = Image.open(imageStream)
             im.save('capcha.png')
+            # распазнование текста на картинке
             text = pytesseract.image_to_string('capcha.png', lang='rus')
+            # фильтрация лишниц символов в распознаном текесте
             text = ''.join(
                 [val for val in text if val.isalpha() or val.isnumeric()])
             capcha_text.send_keys(text)
