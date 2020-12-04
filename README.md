@@ -1,9 +1,9 @@
 # mts_bank_task
 ## Парсинг данных с сайтов http://fssprus.ru/ и https://sudrf.ru/
-Для работы скрипта fssp.py необходимо пройти [по ссылке](https://selenium-python.com/install-geckodriver)
+Для работы скриптов необходимо пройти [по ссылке](https://selenium-python.com/install-geckodriver)
 и проследовать инструкции по установки geckodriver согласно вашей операционной системе.
 
-Если необходимо(для Ubuntu можно не указывать) *executable_path* до установленного geckodriver,
+Если необходимо, указать  *executable_path* (для Ubuntu можно не указывать) до установленного geckodriver,
 расскоментив следующие строки в коде:
 ```
 executable_path = указать путь до geckodriver в вашей системе
@@ -27,7 +27,7 @@ sudo apt install tesseract-ocr
 
 sudo apt install tesseract-ocr-rus
 
-далее выполнить 
+Далее активировать виртуальную среду и выполнить 
 ```
 pip install -r requirements.txt
 ```
