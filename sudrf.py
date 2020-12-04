@@ -6,6 +6,8 @@ from selenium.webdriver.support.ui import Select
 
 
 class SudRfParser(object):
+    """Класс принимает на вход данные по человеку, ввиде фамилия имя отчество.
+    И осуществляет получение данных по судебным делам."""
     def __init__(self, driver):
         self.driver = driver
 
@@ -46,6 +48,7 @@ class SudRfParser(object):
 
 
 class XmlsWriter(object):
+    """Осуществляет запись спарсенных данных в файл dossier.xlsx"""
     def __init__(self):
         self.workbook = xlsxwriter.Workbook('sudrf.xlsx')
 

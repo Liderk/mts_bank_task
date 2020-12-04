@@ -12,10 +12,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 class FsspParser(object):
+    """Класс парсинга данных"""
     def __init__(self, driver):
         self.driver = driver
 
     def parse_person_data(self, initials):
+        '''
+        Принимает на вход данные в виде имени, фамилии, отчества, даты
+        рождения. Возвращает данные о судебных предписаниях по указанным данным
+        '''
         initials_keys = ['surname', 'name', 'patronymic', 'birth']
         initials_value = initials.split()
         person_data = dict(zip(initials_keys, initials_value))
@@ -28,6 +33,7 @@ class FsspParser(object):
         return person_data
 
     def _input_man_data(self, **initials):
+        """Вводит данные в поисковую систему"""
 
         self.driver.get('https://fssp.gov.ru/')
 
@@ -73,6 +79,11 @@ class FsspParser(object):
             return True
 
     def _pass_capcha(self):
+        """
+        Прохождение капчи. Работает не всегда с первогораза, но 100%
+        проходит капчу. В дальнейшем возможно включение режима обучения, для
+        более правильной работы.
+        """
         try_pass_capcha = True
 
         while try_pass_capcha:
@@ -117,6 +128,7 @@ class FsspParser(object):
 
 
 class XmlsWriter(object):
+    """Осуществляет запись спарсенных данных в файл dossier.xlsx"""
     def __init__(self):
         self.workbook = xlsxwriter.Workbook('dossier.xlsx')
 
