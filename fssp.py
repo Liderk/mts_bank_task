@@ -2,7 +2,6 @@ import io
 
 import pytesseract
 import xlsxwriter
-from os import path
 from PIL import Image
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import Firefox
@@ -16,44 +15,17 @@ class FsspParser(object):
     def __init__(self, driver):
         self.driver = driver
 
-    def parse(self, initials):
+    def parse_person_data(self, initials):
         initials_keys = ['surname', 'name', 'patronymic', 'birth']
         initials_value = initials.split()
-        initials = dict(zip(initials_keys, initials_value))
-        self._input_man_data(**initials)
+        person_data = dict(zip(initials_keys, initials_value))
+        self._input_man_data(**person_data)
         header = self.driver.find_elements_by_tag_name('th')
+        person_data['header'] = header
         data = self.driver.find_elements_by_tag_name('td')
-        self._write_xmls(header, data, **initials)
+        person_data['data'] = data[1:]
 
-        self.close()
-
-    def _write_xmls(self, header, data, **initials):
-        workbook = xlsxwriter.Workbook('dossier.xlsx')
-        worksheet = workbook.add_worksheet()
-        row, col = 0, 0
-        for item in header:
-            worksheet.write(row, col, item.text)
-            col += 1
-
-        surname = initials['surname'].upper()
-
-        if data:
-            for item in data[1:]:
-                temp = item.text
-                if surname in temp:
-                    row += 1
-                    col = 0
-                worksheet.write(row, col, item.text)
-                col += 1
-        else:
-            row, col = 1, 0
-            worksheet.write(row, col, f'По {initials["surname"]} '
-                                      f'{initials["name"]}')
-            worksheet.write(row, col + 1, 'Открытых дел нет')
-
-        workbook.close()
-        print(f'Данные по {initials["surname"]} {initials["name"]} записанны в'
-              f' файл dossier.xlsx')
+        return person_data
 
     def _input_man_data(self, **initials):
 
@@ -89,7 +61,14 @@ class FsspParser(object):
         input_birth_date.send_keys(initials['birth'])
         input_birth_date.submit()
 
+        self.driver.implicitly_wait(5)
+        try:
+            self.driver.find_element_by_xpath(
+                '//input[@id="captcha-popup-code"]')
+        except NoSuchElementException:
+            return True
         pass_capcha = self._pass_capcha()
+
         if pass_capcha:
             return True
 
@@ -97,12 +76,11 @@ class FsspParser(object):
         try_pass_capcha = True
 
         while try_pass_capcha:
-            self.driver.implicitly_wait(10)
 
-            capcha_text = self.driver.find_element_by_xpath(
+            capcha_text_imput = self.driver.find_element_by_xpath(
                 '//input[@id="captcha-popup-code"]')
-            capcha_text.click()
-            capcha_text.clear()
+            capcha_text_imput.click()
+            capcha_text_imput.clear()
             # распазнование капчи
             # получение элемента содержащего картинку с текстом капчи
             image = self.driver.find_element_by_id(
@@ -117,8 +95,10 @@ class FsspParser(object):
             # фильтрация лишниц символов в распознаном текесте
             text = ''.join(
                 [val for val in text if val.isalpha() or val.isnumeric()])
-            capcha_text.send_keys(text)
-            capcha_text.submit()
+            capcha_text_imput.send_keys(text)
+            capcha_text_imput.submit()
+
+            self.driver.implicitly_wait(10)
 
             try:
                 self.driver.find_element_by_class_name('results-frame')
@@ -126,8 +106,9 @@ class FsspParser(object):
             except NoSuchElementException:
                 self.driver.refresh()
                 print('Не прошел капчу. Пробую еще.')
+            else:
+                try_pass_capcha = False
 
-            try_pass_capcha = False
         return True
 
     def close(self):
@@ -135,15 +116,56 @@ class FsspParser(object):
         quit()
 
 
+class XmlsWriter(object):
+    def __init__(self):
+        self.workbook = xlsxwriter.Workbook('dossier.xlsx')
+
+    def write_xlsx(self, data):
+        surname = data['surname'].upper()
+        judgment = data.get('data', None)
+        if not judgment:
+            return print(
+                f'На {data["surname"]} {data["name"]} нет открытых дел')
+
+        worksheet = self.workbook.add_worksheet()
+        row, col = 0, 0
+        for item in data['header']:
+            worksheet.write(row, col, item.text)
+            col += 1
+
+        for item in data['data']:
+            _ = item.text
+            if surname in _:
+                row += 1
+                col = 0
+            worksheet.write(row, col, item.text)
+            col += 1
+        print(f'Данные по {data["surname"]} {data["name"]} записанны в'
+              f' файл dossier.xlsx')
+        return
+
+    def close_xlsx(self):
+        self.workbook.close()
+        print('Все записанно')
+
+
 def main():
-    obj = 'Кондратьев Сергей Сергеевич 03.11.1990'
+    example = [
+        'Кондратьев Сергей Сергеевич 03.11.1990',
+        'Христолюбов Алексей Сергеевич 03.11.1990'
+    ]
     options = Options()
     options.headless = True
     # executable_path = указать путь до geckodriver в вашей системе
     # driver = Firefox(options=options, executable_path=executable_path)
     driver = Firefox(options=options)
     parser = FsspParser(driver)
-    parser.parse(obj)
+    get_xlsx = XmlsWriter()
+    for person in example:
+        data = parser.parse_person_data(person)
+        get_xlsx.write_xlsx(data)
+    get_xlsx.close_xlsx()
+    parser.close()
 
 
 if __name__ == '__main__':
